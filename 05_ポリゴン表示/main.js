@@ -59,6 +59,44 @@ map.on('load', () => {
     },
   });
 
+  // PMTiles（管理三角点・点）。bounds: 129.07,32.80 - 129.92,32.83（長崎付近）。地図を西へパンすると見える。
+  var takakutenPmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/output_data/kanri_takakuten_pt.pmtiles';
+  map.addSource('pmtiles_takakuten', {
+    type: 'vector',
+    url: 'pmtiles://' + takakutenPmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_takakuten_circle',
+    type: 'circle',
+    source: 'pmtiles_takakuten',
+    'source-layer': 'kanri_takakuten_pt',
+    paint: {
+      'circle-radius': 6,
+      'circle-color': '#e74c3c',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#c0392b',
+    },
+  });
+
+  // PMTiles（14条地図・ポリゴン）。bounds: 127.66,26.19 - 145.61,44.37（全国）、約7906件
+  var jyuchizuPmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/output_data/14条地図.pmtiles';
+  map.addSource('pmtiles_jyuchizu', {
+    type: 'vector',
+    url: 'pmtiles://' + jyuchizuPmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_jyuchizu_fill',
+    type: 'fill',
+    source: 'pmtiles_jyuchizu',
+    'source-layer': '14条地図',
+    filter: ['in', ['geometry-type'], ['literal', ['Polygon', 'MultiPolygon']]],
+    paint: {
+      'fill-color': '#27ae60',
+      'fill-opacity': 0.5,
+      'fill-outline-color': '#1e8449',
+    },
+  });
+
   // デバッグ: ソースのロード成否をコンソールで確認
   map.on('error', (e) => console.error('MapLibre error:', e));
   map.on('sourcedata', (e) => {
@@ -74,11 +112,61 @@ map.on('load', () => {
 // 地物クリック時にポップアップを表示する
 map.on('click', 'industrial_area', (e) => {
   var name = e.features[0].properties.L05_002;
-  // ポップアップを表示する
   new maplibregl.Popup({
-    closeButton: false, // 閉じるボタンの表示
+    closeButton: false,
   })
     .setLngLat(e.lngLat)
     .setHTML(name)
+    .addTo(map);
+});
+
+// 管理三角点クリック時: 座標と属性をポップアップ表示（タイルに含まれる全プロパティを表示）
+var takakutenLabel = {
+  meisyo: '名称', syozaiti: '所在地', kijyunten_cd: '基準点コード', sokuryo_nengappi: '測量年月日',
+  x: '座標系X', y: '座標系Y', b: '緯度b', l: '経度l', jibandaka: '楕円体高', antenna_daka: 'アンテナ高',
+  id: 'ID', haiten: '配点', sikutyo_cd: '測地系コード', sikutyo: '測地系', syubetu_cd: '種別コード',
+  zahyokei_cd: '座標系コード', sokutikei_cd: '測地系コード2', hosei_x: '補正X', hosei_y: '補正Y',
+  hyoko: '標高', hosei_hyoko: '補正標高', geoid: 'ジオイド', syukusyaku_keisu: '縮尺係数', n: 'n',
+  zaisitu_cd: '在処コード', sokutei_housiki_cd: '測定方式コード', genkyo_timoku_cd: '現況科目コード',
+  antenna_iti_cd: 'アンテナ位置コード', setti_cd: '設置コード', yobi: '予備',
+};
+map.on('click', 'pmtiles_takakuten_circle', (e) => {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
+  var rows = [];
+  Object.keys(p).forEach(function (k) {
+    if (k === 'mvt_id') return;
+    var label = takakutenLabel[k] || k;
+    rows.push([label, fmt(p[k])]);
+  });
+  var table = rows.length
+    ? rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('')
+    : '<tr><td colspan="2">属性なし</td></tr>';
+  var html = '<div class="popup-takakuten">' +
+    '<p><strong>座標</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p>' +
+    '<table><tbody>' + table + '</tbody></table>' +
+    '</div>';
+  new maplibregl.Popup({ closeButton: true })
+    .setLngLat(e.lngLat)
+    .setHTML(html)
+    .addTo(map);
+});
+
+// 14条地図ポリゴンクリック時: 14条完了エリアとして ID・AREA をポップアップ表示
+map.on('click', 'pmtiles_jyuchizu_fill', (e) => {
+  var p = e.features[0].properties;
+  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
+  var html = '<div class="popup-takakuten">' +
+    '<p class="popup-title">14条完了エリア</p>' +
+    '<p><strong>座標</strong> 経度 ' + e.lngLat.lng.toFixed(6) + ' / 緯度 ' + e.lngLat.lat.toFixed(6) + '</p>' +
+    '<table><tbody>' +
+    '<tr><th>ID</th><td>' + fmt(p.ID) + '</td></tr>' +
+    '<tr><th>AREA</th><td>' + fmt(p.AREA) + '</td></tr>' +
+    '</tbody></table></div>';
+  new maplibregl.Popup({ closeButton: true })
+    .setLngLat(e.lngLat)
+    .setHTML(html)
     .addTo(map);
 });

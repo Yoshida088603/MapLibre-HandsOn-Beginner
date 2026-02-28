@@ -7,3 +7,37 @@ body,
 #map {
   height: 100%;
 }
+
+/* 管理三角点・14条地図ポップアップ */
+.popup-takakuten {
+  font-size: 12px;
+  max-width: 320px;
+}
+.popup-takakuten p {
+  margin: 0 0 8px 0;
+}
+.popup-takakuten .popup-title {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #ddd;
+}
+.popup-takakuten table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.popup-takakuten th,
+.popup-takakuten td {
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.popup-takakuten th {
+  background: #f5f5f5;
+  width: 30%;
+}
+.popup-takakuten td {
+  word-break: break-all;
+}
