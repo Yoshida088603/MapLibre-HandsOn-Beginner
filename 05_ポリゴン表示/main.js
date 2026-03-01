@@ -97,6 +97,58 @@ map.on('load', () => {
     },
   });
 
+  // PMTiles（土地活用推進調査・マージ済み）。bounds: 約114.5,32.2 - 142.2,44.1（全国）
+  var tochiPmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/inputfile/20260219昨年納品DVD/05ホームページ公開用データ及びプログラム/データ_geopackage_marged/土地活用推進調査_merged.pmtiles';
+  map.addSource('pmtiles_tochi', {
+    type: 'vector',
+    url: 'pmtiles://' + tochiPmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_tochi_fill',
+    type: 'fill',
+    source: 'pmtiles_tochi',
+    'source-layer': 'tochi_merged',
+    filter: ['in', ['geometry-type'], ['literal', ['Polygon', 'MultiPolygon']]],
+    paint: {
+      'fill-color': '#9b59b6',
+      'fill-opacity': 0.5,
+      'fill-outline-color': '#6c3483',
+    },
+  });
+  map.addLayer({
+    id: 'pmtiles_tochi_circle',
+    type: 'circle',
+    source: 'pmtiles_tochi',
+    'source-layer': 'tochi_merged',
+    filter: ['in', ['geometry-type'], ['literal', ['Point', 'MultiPoint']]],
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#9b59b6',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#6c3483',
+    },
+  });
+
+  // 1件だけの CSV から作った PMTiles（single_csv_to_pmtiles.sh で生成した TH_23521.pmtiles など）
+  var tochiSingleBase = 'TH_23521.pmtiles';
+  var tochiSingleUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/inputfile/20260219昨年納品DVD/05ホームページ公開用データ及びプログラム/データ_geopackage_marged/' + tochiSingleBase;
+  map.addSource('pmtiles_tochi_single', {
+    type: 'vector',
+    url: 'pmtiles://' + tochiSingleUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_tochi_single_circle',
+    type: 'circle',
+    source: 'pmtiles_tochi_single',
+    'source-layer': 'tochi_merged',
+    paint: {
+      'circle-radius': 6,
+      'circle-color': '#e67e22',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#d35400',
+    },
+  });
+
   // デバッグ: ソースのロード成否をコンソールで確認
   map.on('error', (e) => console.error('MapLibre error:', e));
   map.on('sourcedata', (e) => {

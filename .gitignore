@@ -1,2 +1,11 @@
-# 05_ポリゴン表示直下にクローンした gdal-full
+# 05_ポリゴン表示直下の gdal-full は別リポジトリ（サブモジュールまたは手動クローン）
 05_ポリゴン表示/gdal-full
+
+# 入出力データ（大容量のためリポジトリに含めない）
+*.pmtiles
+*.gpkg
+*.parquet
+05_ポリゴン表示/**/データ_origin/
+05_ポリゴン表示/**/データ_geopackage_converted/
+05_ポリゴン表示/**/データ_geopackage_marged/
+__pycache__/
