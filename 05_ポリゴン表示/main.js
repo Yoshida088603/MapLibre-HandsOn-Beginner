@@ -222,3 +222,102 @@ map.on('click', 'pmtiles_jyuchizu_fill', (e) => {
     .setHTML(html)
     .addTo(map);
 });
+
+// 土地活用推進調査: ドラッグ可能なパネル＋タイトル横にダウンロードボタン
+var tochiLabel = {
+  col0: 'col0', col1: '市町村コード', col2: '市区町村名', col3: 'col3', col4: 'col4', col5: '座標系',
+  col6: 'col6', x: 'X', y: 'Y', col9: 'col9', col10: 'col10', col11: '住所等', col12: 'col12',
+  col13: '調査日等', col14: 'col14', col15: 'col15', col16: 'col16',
+};
+var tochiDownloadData = {};
+function csvEscape(v) {
+  var s = String(v);
+  if (/[,\n"]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+var tochiPanel = null;
+var tochiPanelDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+
+function ensureTochiPanel() {
+  if (tochiPanel) return tochiPanel;
+  var panel = document.createElement('div');
+  panel.className = 'tochi-panel';
+  panel.style.left = '20px';
+  panel.style.top = '20px';
+  panel.innerHTML =
+    '<div class="tochi-panel-header">' +
+    '<span class="tochi-panel-title">土地活用推進調査</span>' +
+    '<button type="button" class="tochi-download-btn">CSVでダウンロード</button>' +
+    '<button type="button" class="tochi-panel-close" aria-label="閉じる">×</button>' +
+    '</div>' +
+    '<div class="tochi-panel-body"></div>';
+  document.body.appendChild(panel);
+  var header = panel.querySelector('.tochi-panel-header');
+  header.addEventListener('mousedown', function (ev) {
+    if (ev.target.closest('button')) return;
+    tochiPanelDrag.active = true;
+    tochiPanelDrag.startX = ev.clientX;
+    tochiPanelDrag.startY = ev.clientY;
+    tochiPanelDrag.startLeft = parseInt(panel.style.left, 10) || 0;
+    tochiPanelDrag.startTop = parseInt(panel.style.top, 10) || 0;
+  });
+  panel.querySelector('.tochi-panel-close').addEventListener('click', function () {
+    panel.classList.remove('is-visible');
+  });
+  document.addEventListener('mousemove', function (ev) {
+    if (!tochiPanelDrag.active) return;
+    panel.style.left = (tochiPanelDrag.startLeft + ev.clientX - tochiPanelDrag.startX) + 'px';
+    panel.style.top = (tochiPanelDrag.startTop + ev.clientY - tochiPanelDrag.startY) + 'px';
+  });
+  document.addEventListener('mouseup', function () {
+    tochiPanelDrag.active = false;
+  });
+  document.body.addEventListener('click', function (ev) {
+    var btn = ev.target && ev.target.closest && ev.target.closest('.tochi-download-btn');
+    if (!btn || !btn.closest('.tochi-panel') || !btn.dataset.downloadId) return;
+    var csv = tochiDownloadData[btn.dataset.downloadId];
+    if (!csv) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = '土地活用推進調査_属性_' + (new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    delete tochiDownloadData[btn.dataset.downloadId];
+  });
+  tochiPanel = panel;
+  return panel;
+}
+
+function showTochiPopup(e) {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
+  var rows = [];
+  Object.keys(p).forEach(function (k) {
+    if (k === 'mvt_id') return;
+    var label = tochiLabel[k] || k;
+    rows.push([label, fmt(p[k])]);
+  });
+  rows.unshift(['経度', lng], ['緯度', lat]);
+  var csvLines = [['項目', '値']].concat(rows).map(function (r) { return csvEscape(r[0]) + ',' + csvEscape(r[1]); });
+  var csvString = '\uFEFF' + csvLines.join('\n');
+  var downloadId = 'tochi-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  tochiDownloadData[downloadId] = csvString;
+
+  var tableRows = rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; });
+  var table = tableRows.length ? tableRows.join('') : '<tr><td colspan="2">属性なし</td></tr>';
+  var bodyHtml = '<p><strong>座標</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p><table><tbody>' + table + '</tbody></table>';
+
+  var panel = ensureTochiPanel();
+  panel.querySelector('.tochi-panel-body').innerHTML = bodyHtml;
+  var dlBtn = panel.querySelector('.tochi-download-btn');
+  dlBtn.dataset.downloadId = downloadId;
+  panel.style.left = '20px';
+  panel.style.top = '20px';
+  panel.classList.add('is-visible');
+}
+
+map.on('click', 'pmtiles_tochi_circle', showTochiPopup);
+map.on('click', 'pmtiles_tochi_fill', showTochiPopup);
+map.on('click', 'pmtiles_tochi_single_circle', showTochiPopup);
