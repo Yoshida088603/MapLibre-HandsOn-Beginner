@@ -149,6 +149,25 @@ map.on('load', () => {
     },
   });
 
+  // PMTiles（街区基準点等データ・全件マージ）。merge_gaiku_geopackage.sh + gpkg_to_pmtiles.sh で生成
+  var gaikuPmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/inputfile/20260219昨年納品DVD/05ホームページ公開用データ及びプログラム/データ_geopackage_marged/街区基準点等_merged.pmtiles';
+  map.addSource('pmtiles_gaiku', {
+    type: 'vector',
+    url: 'pmtiles://' + gaikuPmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_gaiku_circle',
+    type: 'circle',
+    source: 'pmtiles_gaiku',
+    'source-layer': 'gaiku_merged',
+    paint: {
+      'circle-radius': 5,
+      'circle-color': '#3498db',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#2980b9',
+    },
+  });
+
   // デバッグ: ソースのロード成否をコンソールで確認
   map.on('error', (e) => console.error('MapLibre error:', e));
   map.on('sourcedata', (e) => {
@@ -321,3 +340,31 @@ function showTochiPopup(e) {
 map.on('click', 'pmtiles_tochi_circle', showTochiPopup);
 map.on('click', 'pmtiles_tochi_fill', showTochiPopup);
 map.on('click', 'pmtiles_tochi_single_circle', showTochiPopup);
+
+// 街区基準点等クリック時: 所在地・基準点コード等をポップアップ表示
+var gaikuLabel = { 所在地: '所在地', 基準点コード: '基準点コード', 座標系: '座標系', 市区町名: '市区町名', 街区点・補助点名称: '街区点・補助点名称', 標高: '標高', 測量年月日: '測量年月日' };
+map.on('click', 'pmtiles_gaiku_circle', (e) => {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
+  var rows = [];
+  ['市区町名', '所在地', '基準点コード', '座標系', '街区点・補助点名称', '標高', '測量年月日'].forEach(function (k) {
+    rows.push([gaikuLabel[k] || k, fmt(p[k])]);
+  });
+  var shown = { 市区町名: 1, 所在地: 1, 基準点コード: 1, 座標系: 1, '街区点・補助点名称': 1, 標高: 1, 測量年月日: 1 };
+  Object.keys(p).forEach(function (k) {
+    if (k === 'mvt_id' || shown[k]) return;
+    rows.push([gaikuLabel[k] || k, fmt(p[k])]);
+  });
+  var table = rows.length
+    ? rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('')
+    : '<tr><td colspan="2">属性なし</td></tr>';
+  var html = '<div class="popup-takakuten">' +
+    '<p><strong>街区基準点</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p>' +
+    '<table><tbody>' + table + '</tbody></table></div>';
+  new maplibregl.Popup({ closeButton: true })
+    .setLngLat(e.lngLat)
+    .setHTML(html)
+    .addTo(map);
+});
