@@ -168,6 +168,44 @@ map.on('load', () => {
     },
   });
 
+  // PMTiles（都市部官民基準点等・TKS_04206 白石市）。bounds: 約140.63,38.00（宮城県白石市付近）
+  var tks04206PmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/inputfile/20260219昨年納品DVD/05ホームページ公開用データ及びプログラム/データ_geopackage_marged/TKS_04206.pmtiles';
+  map.addSource('pmtiles_tks04206', {
+    type: 'vector',
+    url: 'pmtiles://' + tks04206PmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_tks04206_circle',
+    type: 'circle',
+    source: 'pmtiles_tks04206',
+    'source-layer': 'merged',
+    paint: {
+      'circle-radius': 6,
+      'circle-color': '#16a085',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#0e6655',
+    },
+  });
+
+  // PMTiles（都市部官民基準点等・全件マージ）。merge_toshi_geopackage.sh + gpkg_to_pmtiles.sh で生成
+  var toshiMergedPmtilesUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/gdal-full/inputfile/20260219昨年納品DVD/05ホームページ公開用データ及びプログラム/データ_geopackage_marged/都市部官民基準点等_merged.pmtiles';
+  map.addSource('pmtiles_toshi_merged', {
+    type: 'vector',
+    url: 'pmtiles://' + toshiMergedPmtilesUrl,
+  });
+  map.addLayer({
+    id: 'pmtiles_toshi_merged_circle',
+    type: 'circle',
+    source: 'pmtiles_toshi_merged',
+    'source-layer': 'toshi_merged',
+    paint: {
+      'circle-radius': 5,
+      'circle-color': '#ff00ff',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': '#c71585',
+    },
+  });
+
   // デバッグ: ソースのロード成否をコンソールで確認
   map.on('error', (e) => console.error('MapLibre error:', e));
   map.on('sourcedata', (e) => {
@@ -180,18 +218,15 @@ map.on('load', () => {
   });
 });
 
-// 地物クリック時にポップアップを表示する
+// 工業用地クリック時: 全属性をドラッグ可能パネルで表示
 map.on('click', 'industrial_area', (e) => {
-  var name = e.features[0].properties.L05_002;
-  new maplibregl.Popup({
-    closeButton: false,
-  })
-    .setLngLat(e.lngLat)
-    .setHTML(name)
-    .addTo(map);
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  showAttributePanel('工業用地', lng, lat, p, { L05_002: '名称' }, '工業用地_属性');
 });
 
-// 管理三角点クリック時: 座標と属性をポップアップ表示（タイルに含まれる全プロパティを表示）
+// 管理三角点クリック時: 全属性をドラッグ可能パネルで表示
 var takakutenLabel = {
   meisyo: '名称', syozaiti: '所在地', kijyunten_cd: '基準点コード', sokuryo_nengappi: '測量年月日',
   x: '座標系X', y: '座標系Y', b: '緯度b', l: '経度l', jibandaka: '楕円体高', antenna_daka: 'アンテナ高',
@@ -205,67 +240,41 @@ map.on('click', 'pmtiles_takakuten_circle', (e) => {
   var lng = e.lngLat.lng.toFixed(6);
   var lat = e.lngLat.lat.toFixed(6);
   var p = e.features[0].properties;
-  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
-  var rows = [];
-  Object.keys(p).forEach(function (k) {
-    if (k === 'mvt_id') return;
-    var label = takakutenLabel[k] || k;
-    rows.push([label, fmt(p[k])]);
-  });
-  var table = rows.length
-    ? rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('')
-    : '<tr><td colspan="2">属性なし</td></tr>';
-  var html = '<div class="popup-takakuten">' +
-    '<p><strong>座標</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p>' +
-    '<table><tbody>' + table + '</tbody></table>' +
-    '</div>';
-  new maplibregl.Popup({ closeButton: true })
-    .setLngLat(e.lngLat)
-    .setHTML(html)
-    .addTo(map);
+  showAttributePanel('管理三角点', lng, lat, p, takakutenLabel, '管理三角点_属性');
 });
 
-// 14条地図ポリゴンクリック時: 14条完了エリアとして ID・AREA をポップアップ表示
+// 14条地図ポリゴンクリック時: 全属性をドラッグ可能パネルで表示
 map.on('click', 'pmtiles_jyuchizu_fill', (e) => {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
   var p = e.features[0].properties;
-  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
-  var html = '<div class="popup-takakuten">' +
-    '<p class="popup-title">14条完了エリア</p>' +
-    '<p><strong>座標</strong> 経度 ' + e.lngLat.lng.toFixed(6) + ' / 緯度 ' + e.lngLat.lat.toFixed(6) + '</p>' +
-    '<table><tbody>' +
-    '<tr><th>ID</th><td>' + fmt(p.ID) + '</td></tr>' +
-    '<tr><th>AREA</th><td>' + fmt(p.AREA) + '</td></tr>' +
-    '</tbody></table></div>';
-  new maplibregl.Popup({ closeButton: true })
-    .setLngLat(e.lngLat)
-    .setHTML(html)
-    .addTo(map);
+  showAttributePanel('14条完了エリア', lng, lat, p, { ID: 'ID', AREA: 'AREA' }, '14条地図_属性');
 });
 
-// 土地活用推進調査: ドラッグ可能なパネル＋タイトル横にダウンロードボタン
+// 全レイヤ共通: ドラッグ可能な属性パネル（全属性表示・CSVダウンロード）
 var tochiLabel = {
   col0: 'col0', col1: '市町村コード', col2: '市区町村名', col3: 'col3', col4: 'col4', col5: '座標系',
   col6: 'col6', x: 'X', y: 'Y', col9: 'col9', col10: 'col10', col11: '住所等', col12: 'col12',
   col13: '調査日等', col14: 'col14', col15: 'col15', col16: 'col16',
 };
-var tochiDownloadData = {};
+var attrDownloadData = {};
 function csvEscape(v) {
   var s = String(v);
   if (/[,\n"]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
 }
-var tochiPanel = null;
-var tochiPanelDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
+var attrPanel = null;
+var attrPanelDrag = { active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
 
-function ensureTochiPanel() {
-  if (tochiPanel) return tochiPanel;
+function ensureAttrPanel() {
+  if (attrPanel) return attrPanel;
   var panel = document.createElement('div');
   panel.className = 'tochi-panel';
   panel.style.left = '20px';
   panel.style.top = '20px';
   panel.innerHTML =
     '<div class="tochi-panel-header">' +
-    '<span class="tochi-panel-title">土地活用推進調査</span>' +
+    '<span class="tochi-panel-title">属性情報</span>' +
     '<button type="button" class="tochi-download-btn">CSVでダウンロード</button>' +
     '<button type="button" class="tochi-panel-close" aria-label="閉じる">×</button>' +
     '</div>' +
@@ -274,97 +283,96 @@ function ensureTochiPanel() {
   var header = panel.querySelector('.tochi-panel-header');
   header.addEventListener('mousedown', function (ev) {
     if (ev.target.closest('button')) return;
-    tochiPanelDrag.active = true;
-    tochiPanelDrag.startX = ev.clientX;
-    tochiPanelDrag.startY = ev.clientY;
-    tochiPanelDrag.startLeft = parseInt(panel.style.left, 10) || 0;
-    tochiPanelDrag.startTop = parseInt(panel.style.top, 10) || 0;
+    attrPanelDrag.active = true;
+    attrPanelDrag.startX = ev.clientX;
+    attrPanelDrag.startY = ev.clientY;
+    attrPanelDrag.startLeft = parseInt(panel.style.left, 10) || 0;
+    attrPanelDrag.startTop = parseInt(panel.style.top, 10) || 0;
   });
   panel.querySelector('.tochi-panel-close').addEventListener('click', function () {
     panel.classList.remove('is-visible');
   });
   document.addEventListener('mousemove', function (ev) {
-    if (!tochiPanelDrag.active) return;
-    panel.style.left = (tochiPanelDrag.startLeft + ev.clientX - tochiPanelDrag.startX) + 'px';
-    panel.style.top = (tochiPanelDrag.startTop + ev.clientY - tochiPanelDrag.startY) + 'px';
+    if (!attrPanelDrag.active) return;
+    panel.style.left = (attrPanelDrag.startLeft + ev.clientX - attrPanelDrag.startX) + 'px';
+    panel.style.top = (attrPanelDrag.startTop + ev.clientY - attrPanelDrag.startY) + 'px';
   });
   document.addEventListener('mouseup', function () {
-    tochiPanelDrag.active = false;
+    attrPanelDrag.active = false;
   });
   document.body.addEventListener('click', function (ev) {
     var btn = ev.target && ev.target.closest && ev.target.closest('.tochi-download-btn');
     if (!btn || !btn.closest('.tochi-panel') || !btn.dataset.downloadId) return;
-    var csv = tochiDownloadData[btn.dataset.downloadId];
-    if (!csv) return;
+    var data = attrDownloadData[btn.dataset.downloadId];
+    if (!data || !data.csv) return;
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = '土地活用推進調査_属性_' + (new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')) + '.csv';
+    a.href = URL.createObjectURL(new Blob([data.csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = (data.filename || '属性') + '_' + (new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')) + '.csv';
     a.click();
     URL.revokeObjectURL(a.href);
-    delete tochiDownloadData[btn.dataset.downloadId];
+    delete attrDownloadData[btn.dataset.downloadId];
   });
-  tochiPanel = panel;
+  attrPanel = panel;
   return panel;
+}
+
+function showAttributePanel(title, lng, lat, properties, labelMap, downloadFilename) {
+  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
+  var rows = [['経度', lng], ['緯度', lat]];
+  Object.keys(properties).forEach(function (k) {
+    if (k === 'mvt_id') return;
+    rows.push([(labelMap && labelMap[k]) || k, fmt(properties[k])]);
+  });
+  var csvLines = [['項目', '値']].concat(rows).map(function (r) { return csvEscape(r[0]) + ',' + csvEscape(r[1]); });
+  var csvString = '\uFEFF' + csvLines.join('\n');
+  var downloadId = 'attr-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  attrDownloadData[downloadId] = { csv: csvString, filename: downloadFilename || '属性' };
+
+  var tableRows = rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; });
+  var bodyHtml = '<p><strong>座標</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p><table><tbody>' + tableRows.join('') + '</tbody></table>';
+
+  var panel = ensureAttrPanel();
+  panel.querySelector('.tochi-panel-title').textContent = title;
+  panel.querySelector('.tochi-panel-body').innerHTML = bodyHtml;
+  panel.querySelector('.tochi-download-btn').dataset.downloadId = downloadId;
+  panel.style.left = '20px';
+  panel.style.top = '20px';
+  panel.classList.add('is-visible');
 }
 
 function showTochiPopup(e) {
   var lng = e.lngLat.lng.toFixed(6);
   var lat = e.lngLat.lat.toFixed(6);
   var p = e.features[0].properties;
-  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
-  var rows = [];
-  Object.keys(p).forEach(function (k) {
-    if (k === 'mvt_id') return;
-    var label = tochiLabel[k] || k;
-    rows.push([label, fmt(p[k])]);
-  });
-  rows.unshift(['経度', lng], ['緯度', lat]);
-  var csvLines = [['項目', '値']].concat(rows).map(function (r) { return csvEscape(r[0]) + ',' + csvEscape(r[1]); });
-  var csvString = '\uFEFF' + csvLines.join('\n');
-  var downloadId = 'tochi-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-  tochiDownloadData[downloadId] = csvString;
-
-  var tableRows = rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; });
-  var table = tableRows.length ? tableRows.join('') : '<tr><td colspan="2">属性なし</td></tr>';
-  var bodyHtml = '<p><strong>座標</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p><table><tbody>' + table + '</tbody></table>';
-
-  var panel = ensureTochiPanel();
-  panel.querySelector('.tochi-panel-body').innerHTML = bodyHtml;
-  var dlBtn = panel.querySelector('.tochi-download-btn');
-  dlBtn.dataset.downloadId = downloadId;
-  panel.style.left = '20px';
-  panel.style.top = '20px';
-  panel.classList.add('is-visible');
+  showAttributePanel('土地活用推進調査', lng, lat, p, tochiLabel, '土地活用推進調査_属性');
 }
 
 map.on('click', 'pmtiles_tochi_circle', showTochiPopup);
 map.on('click', 'pmtiles_tochi_fill', showTochiPopup);
 map.on('click', 'pmtiles_tochi_single_circle', showTochiPopup);
 
-// 街区基準点等クリック時: 所在地・基準点コード等をポップアップ表示
+// 都市部官民基準点等（TKS_04206）クリック時: 全属性をドラッグ可能パネルで表示
+var tks04206Label = { 市区町名: '市区町名', 所在地: '所在地', 基準点等名称: '基準点等名称', 基準点コード: '基準点コード', 座標系: '座標系', 標高: '標高', 測量年月日: '測量年月日', 基準点等の種別: '基準点等の種別' };
+map.on('click', 'pmtiles_tks04206_circle', (e) => {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  showAttributePanel('都市部官民基準点', lng, lat, p, tks04206Label, '都市部官民基準点_属性');
+});
+
+// 都市部官民基準点等（マージ）クリック時: 全属性をドラッグ可能パネルで表示
+map.on('click', 'pmtiles_toshi_merged_circle', (e) => {
+  var lng = e.lngLat.lng.toFixed(6);
+  var lat = e.lngLat.lat.toFixed(6);
+  var p = e.features[0].properties;
+  showAttributePanel('都市部官民基準点（マージ）', lng, lat, p, tks04206Label, '都市部官民基準点_マージ_属性');
+});
+
+// 街区基準点等クリック時: 全属性をドラッグ可能パネルで表示
 var gaikuLabel = { 所在地: '所在地', 基準点コード: '基準点コード', 座標系: '座標系', 市区町名: '市区町名', 街区点・補助点名称: '街区点・補助点名称', 標高: '標高', 測量年月日: '測量年月日' };
 map.on('click', 'pmtiles_gaiku_circle', (e) => {
   var lng = e.lngLat.lng.toFixed(6);
   var lat = e.lngLat.lat.toFixed(6);
   var p = e.features[0].properties;
-  var fmt = (v) => (v != null && v !== '') ? String(v) : '—';
-  var rows = [];
-  ['市区町名', '所在地', '基準点コード', '座標系', '街区点・補助点名称', '標高', '測量年月日'].forEach(function (k) {
-    rows.push([gaikuLabel[k] || k, fmt(p[k])]);
-  });
-  var shown = { 市区町名: 1, 所在地: 1, 基準点コード: 1, 座標系: 1, '街区点・補助点名称': 1, 標高: 1, 測量年月日: 1 };
-  Object.keys(p).forEach(function (k) {
-    if (k === 'mvt_id' || shown[k]) return;
-    rows.push([gaikuLabel[k] || k, fmt(p[k])]);
-  });
-  var table = rows.length
-    ? rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('')
-    : '<tr><td colspan="2">属性なし</td></tr>';
-  var html = '<div class="popup-takakuten">' +
-    '<p><strong>街区基準点</strong> 経度 ' + lng + ' / 緯度 ' + lat + '</p>' +
-    '<table><tbody>' + table + '</tbody></table></div>';
-  new maplibregl.Popup({ closeButton: true })
-    .setLngLat(e.lngLat)
-    .setHTML(html)
-    .addTo(map);
+  showAttributePanel('街区基準点', lng, lat, p, gaikuLabel, '街区基準点_属性');
 });
